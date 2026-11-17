@@ -1,0 +1,8 @@
+name = "mymusic2-web"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+
+# Cloudflare Pages 项目：静态前端在 dist/，API 代理在 functions/api/
+# 部署命令：npm run deploy  （首次需 wrangler login）
+[observability]
+enabled = true
