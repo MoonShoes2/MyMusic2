@@ -169,11 +169,17 @@ img { display: block; }
 .segmented { display: flex; margin: 4px 16px 8px; background: var(--surface-2); border-radius: 20px; padding: 3px; }
 .segmented button { flex: 1; height: 32px; border-radius: 18px; font-size: 13px; color: var(--on-surface-variant); transition: all .15s; }
 .segmented button.active { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-.toplist-wrap .list-row, .list-row {
+.toplist-wrap .list-row, .list-row, .playlist-row {
   display: flex; align-items: center; gap: 12px; padding: 7px 16px; cursor: pointer;
 }
-.list-row:hover { background: var(--surface-2); }
+.list-row:hover, .playlist-row:hover { background: var(--surface-2); }
 .song-list { padding: 0 8px; }
+
+/* 歌单头部按钮行：播放全部（实心）+ 收藏（描边，已收藏主色高亮），空间不够自动换行 */
+.playlist-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.playlist-actions .btn { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 14px; font-size: 14px; white-space: nowrap; }
+.playlist-actions .collect-btn { background: transparent; border: 1px solid var(--outline, #cac4c9); color: var(--on-surface-variant); border-radius: 20px; box-shadow: none; }
+.playlist-actions .collect-btn.collected { border-color: var(--primary); color: var(--primary); background: transparent; }
 
 /* ---------- 搜索 ---------- */
 .search-page { display: flex; flex-direction: column; min-height: 0; flex: 1; }
@@ -296,6 +302,35 @@ img { display: block; }
 .queue-row:hover { background: var(--surface-2); }
 .queue-row-main { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
 .queue-row-actions { display: flex; align-items: center; }
+
+/* ---------- 头像：来源选择 / 裁剪页 / 随机预览（对齐原 App） ---------- */
+.avatar-source-card { background: var(--surface-container-high, var(--surface-2)); border-radius: 16px; min-width: 224px; padding: 8px 0; overflow: hidden; }
+.avatar-source-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 20px; font-size: 15px; color: var(--on-surface); text-align: left; }
+.avatar-source-row:hover, .avatar-source-row:active { background: var(--surface-2); }
+
+/* 裁剪页：全屏黑底，方框居中，框外压暗，白圈内即头像 */
+.crop-overlay { position: fixed; inset: 0; background: #000; z-index: 300; overflow: hidden; }
+.crop-view { position: absolute; inset: 0; touch-action: none; cursor: grab; }
+.crop-view:active { cursor: grabbing; }
+.crop-view img { position: absolute; top: 0; left: 0; will-change: transform; user-select: none; -webkit-user-drag: none; }
+/* 压暗遮罩：中间全宽方形镂空（用超宽 box-shadow 实现）+ 白圈内圈 */
+.crop-mask { position: absolute; left: 0; width: 100%; height: 100vw; top: 50%; transform: translateY(-50%); pointer-events: none; box-shadow: 0 0 0 200vmax rgba(0,0,0,.55); }
+.crop-mask::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,.9); }
+.crop-topbar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 12px 8px; z-index: 2; }
+.crop-btn { color: #fff; font-size: 15px; padding: 8px 14px; }
+.crop-btn:disabled { opacity: .5; }
+.crop-flex { flex: 1; }
+.crop-hint { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,.7); font-size: 13px; z-index: 2; }
+
+/* 随机头像全屏预览 */
+.image-viewer-overlay { position: fixed; inset: 0; background: #000; z-index: 300; display: flex; flex-direction: column; }
+.image-viewer-topbar { display: flex; align-items: center; gap: 4px; padding: 12px 8px; z-index: 2; }
+.image-viewer-btn { display: inline-flex; align-items: center; gap: 4px; color: #fff; font-size: 15px; padding: 8px 14px; }
+.image-viewer-btn:disabled { opacity: .5; }
+.image-viewer-btn.primary { background: var(--primary); color: #fff; border-radius: 20px; }
+.image-viewer-body { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.image-viewer-body img { max-width: 100%; max-height: 80vh; object-fit: contain; }
+.image-viewer-body .spinner { border-color: rgba(255,255,255,.3); border-top-color: #fff; }
 
 /* ---------- 设置 ---------- */
 .settings-group { margin: 12px 12px 0; background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }

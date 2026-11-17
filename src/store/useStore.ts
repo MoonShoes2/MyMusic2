@@ -272,15 +272,16 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     set({ playlists }); save(K.playlists, playlists)
   },
   addToPlaylist: (id, songs) => {
+    let added = 0
     const playlists = get().playlists.map((p) => {
       if (p.id !== id) return p
       const existing = new Set(p.songs.map(songKey))
       const fresh = songs.filter((s) => !existing.has(songKey(s)))
+      added = fresh.length
       return { ...p, songs: [...fresh, ...p.songs] }
     })
     set({ playlists }); save(K.playlists, playlists)
-    const target = playlists.find((p) => p.id === id)
-    return songs.length - (target ? target.songs.length - get().playlists.find((p) => p.id === id)!.songs.length : 0)
+    return added
   },
   removeFromPlaylist: (id, song) => {
     const playlists = get().playlists.map((p) =>

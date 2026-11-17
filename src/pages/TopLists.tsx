@@ -11,9 +11,6 @@ export function TopLists() {
   const { source = 'wy' } = useParams()
   const nav = useNavigate()
   const [lists, setLists] = useState<PlaylistSummary[] | null>(null)
-  const playlists = useLibrary((s) => s.playlists)
-  const createPlaylist = useLibrary((s) => s.createPlaylist)
-  const addToPlaylist = useLibrary((s) => s.addToPlaylist)
 
   useEffect(() => {
     let alive = true
@@ -22,29 +19,16 @@ export function TopLists() {
     return () => { alive = false }
   }, [source])
 
-  const collect = async (p: PlaylistSummary) => {
-    try {
-      const songs = await api.playlistSongs(p.source, p.id)
-      const pl = createPlaylist(p.name)
-      addToPlaylist(pl.id, songs)
-      toast(`已创建歌单《${p.name}》，收藏 ${songs.length} 首`)
-    } catch { toast('收藏失败，请检查网络后重试') }
-  }
-
+  // 对齐原版 TopListsScreen：纵向 PlaylistRow 列表，行内无收藏按钮
   return (
     <div className="page">
       <TopBar title={`${sourceLabel(source)} · 排行榜`} onBack={() => nav(-1)} />
-      <div className="scroll-area">
+      <div className="scroll-area" style={{ paddingTop: 8 }}>
         {lists === null ? <LoadingBox /> : lists.length === 0 ? <EmptyBox text="该音源暂无榜单" /> : (
           lists.map((p) => (
             <PlaylistRow key={`${p.source}_${p.id}`} playlist={p}
               subtitle={playlistSubtitle(p, false, true)}
-              onClick={() => nav(`/playlist/${p.source}/${encodeURIComponent(p.id)}?name=${encodeURIComponent(p.name)}&cover=${encodeURIComponent(p.coverUrl || '')}`)}
-              trailing={
-                <button className="icon-btn small" onClick={() => collect(p)} aria-label="收藏歌单">
-                  <Icon name={playlists.some((x) => x.name === p.name) ? 'check' : 'folder'} size={20} />
-                </button>
-              } />
+              onClick={() => nav(`/playlist/${p.source}/${encodeURIComponent(p.id)}?name=${encodeURIComponent(p.name)}&cover=${encodeURIComponent(p.coverUrl || '')}`)} />
           ))
         )}
       </div>

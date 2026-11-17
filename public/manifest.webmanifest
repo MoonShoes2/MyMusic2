@@ -8,7 +8,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FFFBF8",
-  "theme_color": "#D43C33",
+  "theme_color": "#FFFBF8",
   "lang": "zh-CN",
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },

@@ -2,10 +2,9 @@
 // 对齐 NeteaseOfficialProvider / KugouOfficialProvider / QqOfficialProvider
 
 import { getText, postForm, postJson, stripKgTag, tryParseJson, safeNumber, firstNonEmpty } from './http'
-import { NETEASE_API, NETEASE_REFERER, QQ_REFERER } from './config'
+import { NETEASE_API, neteaseHeaders, QQ_REFERER } from './config'
 import { type Song, type PlaylistSummary, type Source } from './types'
 
-const neteaseHdr = { Referer: NETEASE_REFERER }
 const qqHdr = { Referer: QQ_REFERER }
 
 function coverUrl(raw: unknown): string | null {
@@ -45,27 +44,34 @@ function neteaseSummary(it: any): PlaylistSummary {
 
 /** 网易榜单列表 GET /api/toplist */
 export async function neteaseToplists(): Promise<PlaylistSummary[]> {
-  const body = await getText(`${NETEASE_API}/api/toplist`, neteaseHdr)
+  const body = await getText(`${NETEASE_API}/api/toplist`, neteaseHeaders())
   const json = tryParseJson<any>(body)
   const list = json?.list
   return Array.isArray(list) ? list.map(neteaseSummary) : []
 }
 
-/** 网易歌单/榜单详情 POST /api/v6/playlist/detail（n=1000 拿全量） */
+/** 网易歌单/榜单详情：先走 v6 POST，被反爬拦了（460/空）降级老接口 GET /api/playlist/detail */
 export async function neteasePlaylistSongs(id: string): Promise<Song[]> {
-  const body = await postForm(
-    `${NETEASE_API}/api/v6/playlist/detail`,
-    { id, n: '1000', s: '8' },
-    neteaseHdr
-  )
-  const json = tryParseJson<any>(body)
-  const tracks = json?.playlist?.tracks
-  return Array.isArray(tracks) ? tracks.map(parseNeteaseTrack) : []
+  try {
+    const body = await postForm(
+      `${NETEASE_API}/api/v6/playlist/detail`,
+      { id, n: '1000', s: '8' },
+      neteaseHeaders()
+    )
+    const json = tryParseJson<any>(body)
+    const tracks = json?.playlist?.tracks
+    if (Array.isArray(tracks) && tracks.length) return tracks.map(parseNeteaseTrack)
+  } catch { /* 降级 */ }
+  // 老接口：GET /api/playlist/detail?id=xxx → result.tracks（artist/album 旧字段，parseNeteaseTrack 已兼容）
+  const old = await getText(`${NETEASE_API}/api/playlist/detail?id=${encodeURIComponent(id)}`, neteaseHeaders())
+  const json2 = tryParseJson<any>(old)
+  const tracks2 = json2?.result?.tracks || json2?.result?.trackList
+  return Array.isArray(tracks2) ? tracks2.map(parseNeteaseTrack) : []
 }
 
 /** 网易推荐歌单 GET /api/personalized/playlist?limit=10 */
 export async function neteaseRecommend(): Promise<PlaylistSummary[]> {
-  const body = await getText(`${NETEASE_API}/api/personalized/playlist?limit=10`, neteaseHdr)
+  const body = await getText(`${NETEASE_API}/api/personalized/playlist?limit=10`, neteaseHeaders())
   const json = tryParseJson<any>(body)
   const result = json?.result
   return Array.isArray(result) ? result.map(neteaseSummary) : []
@@ -73,7 +79,7 @@ export async function neteaseRecommend(): Promise<PlaylistSummary[]> {
 
 /** 网易新歌 GET /api/personalized/newsong?limit=10 */
 export async function neteaseNewsongs(): Promise<Song[]> {
-  const body = await getText(`${NETEASE_API}/api/personalized/newsong?limit=10`, neteaseHdr)
+  const body = await getText(`${NETEASE_API}/api/personalized/newsong?limit=10`, neteaseHeaders())
   const json = tryParseJson<any>(body)
   const result = json?.result
   if (!Array.isArray(result)) return []
@@ -87,7 +93,7 @@ export async function newsongs(): Promise<Song[]> {
 
 /** 网易热搜 GET /api/search/hot?type=1111 → result.hots[].first（对齐原 App NeteaseOfficialProvider） */
 export async function neteaseHotwords(): Promise<string[]> {
-  const body = await getText(`${NETEASE_API}/api/search/hot?type=1111`, neteaseHdr)
+  const body = await getText(`${NETEASE_API}/api/search/hot?type=1111`, neteaseHeaders())
   const json = tryParseJson<any>(body)
   const arr = json?.result?.hots || json?.result?.hotWords || []
   if (!Array.isArray(arr)) return []
@@ -286,7 +292,7 @@ export async function kugouToplists(): Promise<PlaylistSummary[]> {
 /** 酷狗榜单详情 GET /api/v3/rank/song */
 export async function kugouToplistSongs(id: string): Promise<Song[]> {
   const url = `${KG_RANK_API}/rank/song?version=9108&plat=0&pagesize=100&page=1&area_code=1&rankid=${encodeURIComponent(id)}&volid=0&with_res_tag=1`
-  const body = await getText(url)
+  const body = await getText(url, { Referer: 'https://m.kugou.com/' })
   const json = tryParseJson<any>(stripKgTag(body))
   const list = json?.data?.info || []
   return Array.isArray(list) ? list.map(parseKgTrack) : []

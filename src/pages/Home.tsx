@@ -20,19 +20,39 @@ export default function Home() {
   const [toplists, setToplists] = useState<PlaylistSummary[] | null>(null)
   const [songs, setSongs] = useState<Song[] | null>(null)
   const [source, setSource] = useState<Source>('wy')
-  const [refreshTick, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
 
+  // 局部加载：只更新自己那块，不动其他区块（下拉刷新时页面保持现状）
+  const loadRecos = useCallback(() => {
+    api.recommend().then((r) => setRecommends(r)).catch(() => setRecommends((v) => v ?? []))
+  }, [])
+  const loadNews = useCallback(() => {
+    api.newsongs().then((r) => setSongs(r)).catch(() => setSongs((v) => v ?? []))
+  }, [])
+  const loadTops = useCallback((src: Source) => {
+    api.toplists(src).then((r) => setToplists(r.slice(0, 5))).catch(() => setToplists((v) => v ?? []))
+  }, [])
+
+  // 首次进入：三块并发
   useEffect(() => {
-    let alive = true
-    setRecommends(null); setToplists(null); setSongs(null)
+    loadRecos(); loadNews(); loadTops('wy')
+  }, [loadRecos, loadNews, loadTops])
+
+  // 切音源：只重拉榜单区块
+  const switchSource = useCallback((s: Source) => {
+    if (s === source) return
+    setSource(s)
+    setToplists(null)
+    loadTops(s)
+  }, [source, loadTops])
+
+  // 下拉刷新：三块并发静默更新（不清空现数据，回来一块更新一块）
+  const refreshAll = useCallback(() => {
     setRefreshing(true)
-    const p1 = api.recommend().then((r) => alive && setRecommends(r)).catch(() => alive && setRecommends([]))
-    const p2 = api.newsongs().then((r) => alive && setSongs(r)).catch(() => alive && setSongs([]))
-    const p3 = api.toplists(source).then((r) => alive && setToplists(r.slice(0, 5))).catch(() => alive && setToplists([]))
-    Promise.all([p1, p2, p3]).finally(() => alive && setRefreshing(false))
-    return () => { alive = false }
-  }, [source, refreshTick])
+    loadRecos(); loadNews(); loadTops(source)
+    // 指示器不必等最慢的接口：一轮静默更新期间展示，随后收起
+    setTimeout(() => setRefreshing(false), 1500)
+  }, [loadRecos, loadNews, loadTops, source])
 
   const openPlaylist = useCallback((p: PlaylistSummary) => {
     nav(`/playlist/${p.source}/${encodeURIComponent(p.id)}?name=${encodeURIComponent(p.name)}&cover=${encodeURIComponent(p.coverUrl || '')}`)
@@ -47,7 +67,6 @@ export default function Home() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [pull, setPull] = useState(0)
   const touch = useRef({ startY: 0, pulling: false })
-  const refreshTickRef = refreshTick
 
   useEffect(() => {
     const el = scrollRef.current
@@ -61,7 +80,6 @@ export default function Home() {
       if (!touch.current.pulling) return
       const dy = e.touches[0].clientY - touch.current.startY
       if (dy > 0 && el.scrollTop <= 0) {
-        // 阻尼：越拉越沉，超过上限不再跟手
         setPull(Math.min(dy * 0.45, PULL_MAX))
         if (e.cancelable) e.preventDefault()
       } else if (dy < 0) {
@@ -72,7 +90,7 @@ export default function Home() {
       if (!touch.current.pulling) return
       touch.current.pulling = false
       if (pull >= PULL_THRESHOLD || pull >= PULL_MAX * 0.85) {
-        setRefreshKey((k) => k + 1)
+        refreshAll()
       }
       setPull(0)
     }
@@ -86,13 +104,12 @@ export default function Home() {
       el.removeEventListener('touchend', onEnd)
       el.removeEventListener('touchcancel', onEnd)
     }
-  }, [refreshing, pull, refreshTickRef])
+  }, [refreshing, pull, refreshAll])
 
   if (recommends === null && toplists === null && songs === null) return <div className="page"><LoadingBox /></div>
 
   const empty = (recommends?.length || 0) + (toplists?.length || 0) + (songs?.length || 0) === 0
 
-  // 指示器位移：下拉时跟手；刷新中固定停在展开位置
   const indicatorY = refreshing ? PULL_MAX - 8 : Math.max(0, pull - 8)
 
   return (
@@ -101,14 +118,13 @@ export default function Home() {
 
       {empty ? <EmptyBox text="暂时没有内容" /> : (
         <div className="home-pull-wrap">
-          {/* Material 下拉刷新指示器：顶部居中圆盘，随手指位移 / 刷新中旋转 */}
           <div className="ptr-indicator" style={{ transform: `translate(-50%, ${indicatorY}px)`, opacity: pull > 0 || refreshing ? 1 : 0 }}>
             <span className="spinner" />
           </div>
           <div className="scroll-area" ref={scrollRef}>
             {/* 为你推荐 */}
             <SectionHeader title="为你推荐" action={<HeaderAction text="更多" onClick={() => nav('/recommend')} />} />
-            {recommends && (
+            {recommends === null ? <LoadingBox /> : recommends.length === 0 ? <EmptyBox text="暂无推荐" /> : (
               <div className="reco-grid">
                 {recommends.slice(0, 3).map((p) => (
                   <div key={`${p.source}_${p.id}`} className="reco-card" onClick={() => openPlaylist(p)}>
@@ -125,7 +141,7 @@ export default function Home() {
             <SectionHeader title="榜单" action={<HeaderAction text="查看全部" onClick={() => nav(`/toplists/${source}`)} />} />
             <div className="segmented">
               {SOURCES.map((s) => (
-                <button key={s} className={s === source ? 'active' : ''} onClick={() => setSource(s)}>{sourceLabel(s)}</button>
+                <button key={s} className={s === source ? 'active' : ''} onClick={() => switchSource(s)}>{sourceLabel(s)}</button>
               ))}
             </div>
             <div className="toplist-wrap">
